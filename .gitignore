@@ -1,20 +1,28 @@
 # Rust — artefactos de compilación en cualquier crate del monorepo
 **/target/
 
-# Cargo.lock solo en la raíz del repo (cada crate puede tener el suyo local)
+# Cargo.lock solo en la raíz; cada crate Rust versiona el suyo (core-backend, client-desktop, etc.)
 /Cargo.lock
 
-# React.js
-/node_modules
-/build
-/dist
+# Node.js — dependencias y salidas de build (cualquier subproyecto)
+node_modules/
+dist/
+build/
+
+# Variables de entorno
 .env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Lockfiles JS (cada cliente puede regenerarlos con npm/yarn install)
 package-lock.json
 yarn.lock
