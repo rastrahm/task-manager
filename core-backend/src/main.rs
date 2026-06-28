@@ -1,15 +1,33 @@
+//! API REST del gestor de tareas.
+//!
+//! Expone operaciones CRUD sobre tareas almacenadas en PostgreSQL, con soporte
+//! para jerarquía padre/hijo (`parent_id`) y campos flexibles en `metadata` (JSONB).
+//!
+//! ## Endpoints
+//!
+//! | Método  | Ruta                        | Descripción                          |
+//! |---------|-----------------------------|--------------------------------------|
+//! | GET     | `/tasks`                    | Lista tareas raíz con `children`     |
+//! | POST    | `/tasks`                    | Crea tarea o subtarea                |
+//! | PUT     | `/tasks/:id`                | Reemplaza todos los campos editables |
+//! | PATCH   | `/tasks/:id/description`    | Actualiza solo `description`         |
+//! | PATCH   | `/tasks/:id/metadata`       | Actualiza solo `metadata`            |
+//! | POST    | `/tasks/:id/toggle`         | Alterna el estado `completed`        |
+
 use axum::{
-    routing::{get, post},
-    extract::{State, Path},
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{get, patch, post, put},
     Json, Router,
 };
-use sqlx::postgres::{PgPool, PgPoolOptions};
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::{PgPool, PgPoolOptions};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
 
-/// Represents a task in the system, as stored in the database.
-/// Includes an optional `parent_id` for hierarchical tasks (subtasks).
+/// Tarea tal como se persiste en la tabla `tasks`.
+/// Corresponde fila a fila con el esquema definido en `init.sql`.
 #[derive(Serialize, Deserialize, sqlx::FromRow)]
 struct Task {
     id: i32,
@@ -17,26 +35,136 @@ struct Task {
     description: Option<String>,
     completed: bool,
     metadata: serde_json::Value,
+    /// Referencia a otra tarea; `None` indica tarea raíz.
     parent_id: Option<i32>,
 }
 
-/// Represents the data required to create a new task.
-/// `title` is mandatory, while `description`, `metadata`, and `parent_id` are optional.
-/// `parent_id` can be used to create a subtask.
+/// Tarea devuelta por `GET /tasks`: mismos campos que `Task` más subtareas anidadas.
+#[derive(Serialize)]
+struct TaskTree {
+    id: i32,
+    title: String,
+    description: Option<String>,
+    completed: bool,
+    metadata: serde_json::Value,
+    parent_id: Option<i32>,
+    children: Vec<TaskTree>,
+}
+
+/// Convierte la lista plana de la BD en un bosque de tareas raíz con `children` anidados.
+///
+/// Las tareas cuyo `parent_id` no existe en el conjunto cargado se tratan como raíz
+/// para evitar nodos huérfanos en la respuesta JSON.
+fn build_task_tree(tasks: Vec<Task>) -> Vec<TaskTree> {
+    use std::collections::HashSet;
+
+    let ids: HashSet<i32> = tasks.iter().map(|task| task.id).collect();
+    let mut by_parent: HashMap<Option<i32>, Vec<&Task>> = HashMap::new();
+
+    for task in &tasks {
+        // Solo agrupa bajo un padre si ese padre está presente en el lote cargado.
+        let parent_key = match task.parent_id {
+            Some(parent_id) if ids.contains(&parent_id) => Some(parent_id),
+            _ => None,
+        };
+        by_parent.entry(parent_key).or_default().push(task);
+    }
+
+    fn build_subtree(
+        parent_id: Option<i32>,
+        by_parent: &HashMap<Option<i32>, Vec<&Task>>,
+    ) -> Vec<TaskTree> {
+        let mut siblings: Vec<&Task> = by_parent.get(&parent_id).cloned().unwrap_or_default();
+        siblings.sort_by_key(|task| task.id);
+
+        siblings
+            .into_iter()
+            .map(|task| TaskTree {
+                id: task.id,
+                title: task.title.clone(),
+                description: task.description.clone(),
+                completed: task.completed,
+                metadata: task.metadata.clone(),
+                parent_id: task.parent_id,
+                children: build_subtree(Some(task.id), by_parent),
+            })
+            .collect()
+    }
+
+    let mut roots = build_subtree(None, &by_parent);
+    // Las raíces más recientes primero (id descendente).
+    roots.sort_by_key(|task| std::cmp::Reverse(task.id));
+    roots
+}
+
+/// Cuerpo esperado en `POST /tasks`.
+/// `title` es obligatorio; el resto de campos son opcionales.
 #[derive(Deserialize)]
 struct CreateTask {
     title: String,
     description: Option<String>,
+    /// Si no se envía, el backend guarda `{}`.
     metadata: Option<serde_json::Value>,
+    /// Si se indica, la tarea se crea como subtarea del padre referenciado.
     parent_id: Option<i32>,
 }
 
+/// Cuerpo esperado en `PUT /tasks/:id` (reemplazo completo del recurso).
+/// Todos los campos editables deben enviarse en cada petición.
+#[derive(Deserialize)]
+struct UpdateTask {
+    title: String,
+    description: Option<String>,
+    completed: bool,
+    metadata: serde_json::Value,
+    parent_id: Option<i32>,
+}
+
+/// Cuerpo esperado en `PATCH /tasks/:id/description`.
+/// Enviar `"description": null` elimina el texto de la descripción.
+#[derive(Deserialize)]
+struct PatchDescription {
+    description: Option<String>,
+}
+
+/// Cuerpo esperado en `PATCH /tasks/:id/metadata`.
+/// Reemplaza por completo el objeto JSON almacenado en la columna `metadata`.
+#[derive(Deserialize)]
+struct PatchMetadata {
+    metadata: serde_json::Value,
+}
+
+/// Estado compartido de la aplicación: pool de conexiones a PostgreSQL.
 type AppState = PgPool;
+
+/// Consulta base reutilizada por los handlers que leen o devuelven una tarea.
+const TASK_SELECT: &str =
+    "SELECT id, title, description, completed, metadata, parent_id FROM tasks";
+
+/// Obtiene una tarea por `id` o devuelve `404 Not Found`.
+async fn fetch_task(pool: &PgPool, id: i32) -> Result<Task, StatusCode> {
+    sqlx::query_as::<_, Task>(&format!("{TASK_SELECT} WHERE id = $1"))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+/// Impide que una tarea sea su propio padre (`parent_id == id`).
+fn validate_parent_id(id: i32, parent_id: Option<i32>) -> Result<(), StatusCode> {
+    if parent_id == Some(id) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() {
-    // Conexión explícita a la base de datos
-    let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres:postgre@localhost/tasks_db".to_string());
+    // `DATABASE_URL` permite apuntar a distintos entornos sin recompilar.
+    let db_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgre@localhost/tasks_db".to_string());
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&db_url)
@@ -45,32 +173,30 @@ async fn main() {
 
     let app = Router::new()
         .route("/tasks", get(get_tasks).post(create_task))
+        .route("/tasks/:id", put(update_task))
+        .route("/tasks/:id/description", patch(patch_description))
+        .route("/tasks/:id/metadata", patch(patch_metadata))
         .route("/tasks/:id/toggle", post(toggle_task))
-        .layer(CorsLayer::permissive()) // Permitir accesos de React, Android y Tauri
+        // CORS permisivo para clientes web, móvil y escritorio en desarrollo.
+        .layer(CorsLayer::permissive())
         .with_state(pool);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    println!("Core Backend corriendo en http://{}", addr);
+    let addr = SocketAddr::from(([0, 0, 0, 0], 5040));
+    println!("Core Backend corriendo en http://{addr}");
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-/// Handles the GET request to retrieve all tasks from the database.
-/// Tasks are ordered by their ID in descending order.
-/// Returns a JSON array of Task objects.
-async fn get_tasks(State(pool): State<AppState>) -> Json<Vec<Task>> {
-    let tasks = sqlx::query_as::<_, Task>("SELECT id, title, description, completed, metadata, parent_id FROM tasks ORDER BY id DESC")
+/// `GET /tasks` — Devuelve las tareas raíz con sus subtareas en `children`.
+async fn get_tasks(State(pool): State<AppState>) -> Json<Vec<TaskTree>> {
+    let tasks = sqlx::query_as::<_, Task>(&format!("{TASK_SELECT} ORDER BY id ASC"))
         .fetch_all(&pool)
         .await
         .unwrap();
-    Json(tasks)
+    Json(build_task_tree(tasks))
 }
 
-/// Handles the POST request to create a new task.
-/// Expects a JSON payload of CreateTask and inserts it into the database.
-/// The `metadata` field defaults to an empty JSON object if not provided.
-/// The `parent_id` can be optionally provided to create a subtask.
-/// Returns the newly created Task object as JSON.
+/// `POST /tasks` — Inserta una tarea nueva y devuelve el registro creado.
 async fn create_task(State(pool): State<AppState>, Json(payload): Json<CreateTask>) -> Json<Task> {
     let metadata = payload.metadata.unwrap_or(serde_json::json!({}));
     let task = sqlx::query_as::<_, Task>(
@@ -86,9 +212,81 @@ async fn create_task(State(pool): State<AppState>, Json(payload): Json<CreateTas
     Json(task)
 }
 
-/// Handles the POST request to toggle the 'completed' status of a task.
-/// Takes the task ID from the URL path.
-/// Returns `true` as JSON upon successful update.
+/// `PUT /tasks/:id` — Reemplaza título, descripción, estado, metadata y padre.
+///
+/// Respuestas: `200` con la tarea actualizada, `404` si no existe,
+/// `400` si `parent_id` apunta a la misma tarea.
+async fn update_task(
+    State(pool): State<AppState>,
+    Path(id): Path<i32>,
+    Json(payload): Json<UpdateTask>,
+) -> Result<Json<Task>, StatusCode> {
+    validate_parent_id(id, payload.parent_id)?;
+    fetch_task(&pool, id).await?;
+
+    let task = sqlx::query_as::<_, Task>(
+        "UPDATE tasks SET title = $1, description = $2, completed = $3, metadata = $4, parent_id = $5
+         WHERE id = $6
+         RETURNING id, title, description, completed, metadata, parent_id",
+    )
+    .bind(&payload.title)
+    .bind(&payload.description)
+    .bind(payload.completed)
+    .bind(&payload.metadata)
+    .bind(payload.parent_id)
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(task))
+}
+
+/// `PATCH /tasks/:id/description` — Actualiza únicamente el campo `description`.
+async fn patch_description(
+    State(pool): State<AppState>,
+    Path(id): Path<i32>,
+    Json(payload): Json<PatchDescription>,
+) -> Result<Json<Task>, StatusCode> {
+    fetch_task(&pool, id).await?;
+
+    let task = sqlx::query_as::<_, Task>(
+        "UPDATE tasks SET description = $1
+         WHERE id = $2
+         RETURNING id, title, description, completed, metadata, parent_id",
+    )
+    .bind(&payload.description)
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(task))
+}
+
+/// `PATCH /tasks/:id/metadata` — Actualiza únicamente el objeto JSON `metadata`.
+async fn patch_metadata(
+    State(pool): State<AppState>,
+    Path(id): Path<i32>,
+    Json(payload): Json<PatchMetadata>,
+) -> Result<Json<Task>, StatusCode> {
+    fetch_task(&pool, id).await?;
+
+    let task = sqlx::query_as::<_, Task>(
+        "UPDATE tasks SET metadata = $1
+         WHERE id = $2
+         RETURNING id, title, description, completed, metadata, parent_id",
+    )
+    .bind(&payload.metadata)
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(task))
+}
+
+/// `POST /tasks/:id/toggle` — Invierte el valor de `completed` sin modificar otros campos.
 async fn toggle_task(State(pool): State<AppState>, Path(id): Path<i32>) -> Json<bool> {
     sqlx::query("UPDATE tasks SET completed = NOT completed WHERE id = $1")
         .bind(id)

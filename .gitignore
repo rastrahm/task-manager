@@ -1,5 +1,5 @@
 # Rust
-/target/
+/core-backend/target/
 /Cargo.lock
 
 # React.js
