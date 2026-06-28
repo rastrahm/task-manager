@@ -1,5 +1,7 @@
-# Rust
-/target/
+# Rust — artefactos de compilación en cualquier crate del monorepo
+**/target/
+
+# Cargo.lock solo en la raíz del repo (cada crate puede tener el suyo local)
 /Cargo.lock
 
 # React.js
