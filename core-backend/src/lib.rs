@@ -95,6 +95,9 @@ pub mod refresh_token;
 pub mod tasks;
 pub mod users;
 
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_support;
+
 use axum::{
     routing::{get, patch, post, put},
     Router,

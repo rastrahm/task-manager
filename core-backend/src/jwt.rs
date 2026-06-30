@@ -60,3 +60,28 @@ pub fn validate_access_token(jwt: &JwtConfig, token: &str) -> Result<AccessClaim
     }
     Ok(token_data.claims)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app_config::JwtConfig;
+
+    #[test]
+    fn create_and_validate_roundtrip() {
+        let jwt = JwtConfig::for_tests();
+        let token = create_access_token(&jwt, 42, "alice", true).unwrap();
+        let claims = validate_access_token(&jwt, &token).unwrap();
+
+        assert_eq!(claims.sub, 42);
+        assert_eq!(claims.username, "alice");
+        assert!(claims.is_admin);
+        assert_eq!(claims.token_type, "access");
+        assert!(claims.exp > claims.iat);
+    }
+
+    #[test]
+    fn rejects_invalid_token() {
+        let jwt = JwtConfig::for_tests();
+        assert!(validate_access_token(&jwt, "not-a-jwt").is_err());
+    }
+}

@@ -48,7 +48,18 @@ impl DbConfig {
     /// Abre el pool de conexiones usando los parámetros configurados.
     pub async fn connect_pool(max_connections: u32) -> PgPool {
         let config = Self::from_env();
+        Self::connect_with_config(&config, max_connections).await
+    }
 
+    /// Pool contra la base de pruebas (`TEST_DB_NAME`, default `tasks_db_test`).
+    #[cfg(any(test, feature = "test-utils"))]
+    pub async fn connect_test_pool(max_connections: u32) -> PgPool {
+        let mut config = Self::from_env();
+        config.database = std::env::var("TEST_DB_NAME").unwrap_or_else(|_| "tasks_db_test".into());
+        Self::connect_with_config(&config, max_connections).await
+    }
+
+    async fn connect_with_config(config: &Self, max_connections: u32) -> PgPool {
         println!(
             "Conectando a PostgreSQL en {}:{}/{} (usuario: {})",
             config.host, config.port, config.database, config.user

@@ -27,3 +27,29 @@ pub fn verify_password(password: &str, password_hash: &str) -> bool {
         .verify_password(password.as_bytes(), &parsed)
         .is_ok()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_and_verify_roundtrip() {
+        let hash = hash_password("secret123").unwrap();
+        assert!(verify_password("secret123", &hash));
+        assert!(!verify_password("wrong", &hash));
+    }
+
+    #[test]
+    fn verify_rejects_invalid_hash_string() {
+        assert!(!verify_password("x", "not-a-valid-phc-hash"));
+    }
+
+    #[test]
+    fn same_password_produces_different_hashes() {
+        let a = hash_password("same").unwrap();
+        let b = hash_password("same").unwrap();
+        assert_ne!(a, b);
+        assert!(verify_password("same", &a));
+        assert!(verify_password("same", &b));
+    }
+}
