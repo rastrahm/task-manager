@@ -63,6 +63,14 @@ cargo run
 
 El servidor escucha en **http://0.0.0.0:5040**.
 
+### Documentación de la API (Rustdoc)
+
+```bash
+cargo doc --open
+```
+
+Genera la documentación de la biblioteca `task_core` con todos los módulos y handlers.
+
 ### Variables de entorno
 
 | Variable                 | Descripción                          | Default        |

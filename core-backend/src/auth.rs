@@ -1,4 +1,8 @@
 //! Login, renovación y cierre de sesión.
+//!
+//! Las rutas de este módulo son **públicas** (no requieren `Authorization`).
+//! Tras un login o refresh exitoso se devuelve un par access + refresh token;
+//! el refresh se rota en cada llamada a [`refresh`].
 
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
@@ -11,28 +15,41 @@ use crate::refresh_token::{
 };
 use crate::users::{fetch_user_by_username, fetch_user_row, verify_user_password, UserResponse};
 
+/// Cuerpo de `POST /auth/login`.
 #[derive(Deserialize)]
 pub struct LoginRequest {
+    /// Nombre de usuario (se recorta espacios al inicio y al final).
     pub username: String,
+    /// Contraseña en texto plano (solo en tránsito; nunca se almacena).
     pub password: String,
 }
 
+/// Cuerpo de `POST /auth/refresh`.
 #[derive(Deserialize)]
 pub struct RefreshRequest {
+    /// Refresh token emitido en el login o refresh anterior.
     pub refresh_token: String,
 }
 
+/// Cuerpo de `POST /auth/logout`.
 #[derive(Deserialize)]
 pub struct LogoutRequest {
+    /// Refresh token a revocar en base de datos.
     pub refresh_token: String,
 }
 
+/// Respuesta de login y refresh.
 #[derive(Serialize)]
 pub struct AuthResponse {
+    /// JWT de acceso para el header `Authorization: Bearer`.
     pub access_token: String,
+    /// Token opaco para renovar la sesión (guardar de forma segura en el cliente).
     pub refresh_token: String,
+    /// Siempre `"Bearer"`.
     pub token_type: &'static str,
+    /// Segundos hasta la caducidad del access token.
     pub expires_in: i64,
+    /// Perfil del usuario autenticado (sin hash de contraseña).
     pub user: UserResponse,
 }
 
@@ -69,6 +86,12 @@ async fn issue_tokens(state: &AppState, user_id: i32) -> Result<AuthResponse, St
     })
 }
 
+/// `POST /auth/login` — autentica con usuario y contraseña.
+///
+/// # Errores
+///
+/// - `401` — credenciales incorrectas o cuenta inactiva.
+/// - `500` — error al firmar JWT o persistir refresh token.
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
@@ -82,6 +105,10 @@ pub async fn login(
     Ok(Json(issue_tokens(&state, user.id).await?))
 }
 
+/// `POST /auth/refresh` — rota el refresh token y emite un par nuevo.
+///
+/// El refresh anterior queda revocado. Si el token no existe, expiró o ya fue usado,
+/// responde `401`.
 pub async fn refresh(
     State(state): State<AppState>,
     Json(payload): Json<RefreshRequest>,
@@ -102,6 +129,9 @@ pub async fn refresh(
     Ok(Json(issue_tokens(&state, record.user_id).await?))
 }
 
+/// `POST /auth/logout` — revoca el refresh token indicado.
+///
+/// Responde `204 No Content` aunque el token ya estuviera revocado.
 pub async fn logout(
     State(state): State<AppState>,
     Json(payload): Json<LogoutRequest>,
