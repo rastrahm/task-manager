@@ -305,3 +305,49 @@ pub async fn toggle_task(
 
     Ok(Json(true))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(id: i32, parent_id: Option<i32>, title: &str) -> TaskRow {
+        TaskRow {
+            id,
+            user_id: 1,
+            title: title.to_string(),
+            description: None,
+            completed: false,
+            metadata: serde_json::json!({}),
+            parent_id,
+        }
+    }
+
+    #[test]
+    fn build_task_tree_nests_by_parent_id() {
+        let tree = build_task_tree(vec![
+            row(1, None, "root"),
+            row(2, Some(1), "child"),
+            row(3, None, "other-root"),
+        ]);
+
+        assert_eq!(tree.len(), 2);
+        let root = tree.iter().find(|t| t.id == Some(1)).unwrap();
+        assert_eq!(root.children.len(), 1);
+        assert_eq!(root.children[0].id, Some(2));
+    }
+
+    #[test]
+    fn build_task_tree_orphan_parent_becomes_root() {
+        let tree = build_task_tree(vec![row(10, Some(999), "orphan")]);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].id, Some(10));
+        assert!(tree[0].children.is_empty());
+    }
+
+    #[test]
+    fn validate_parent_id_rejects_self_reference() {
+        assert_eq!(validate_parent_id(5, Some(5)), Err(StatusCode::BAD_REQUEST));
+        assert!(validate_parent_id(5, Some(3)).is_ok());
+        assert!(validate_parent_id(5, None).is_ok());
+    }
+}

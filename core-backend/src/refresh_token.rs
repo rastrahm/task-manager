@@ -97,3 +97,32 @@ pub async fn revoke_all_user_refresh_tokens(pool: &PgPool, user_id: i32) -> Resu
     .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_refresh_token_is_deterministic_sha256_hex() {
+        let hash = hash_refresh_token("my-refresh-token");
+        assert_eq!(hash, hash_refresh_token("my-refresh-token"));
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn hash_refresh_token_differs_for_different_inputs() {
+        assert_ne!(
+            hash_refresh_token("token-a"),
+            hash_refresh_token("token-b")
+        );
+    }
+
+    #[test]
+    fn generate_refresh_token_produces_unique_values() {
+        let a = generate_refresh_token();
+        let b = generate_refresh_token();
+        assert_ne!(a, b);
+        assert!(!a.is_empty());
+    }
+}

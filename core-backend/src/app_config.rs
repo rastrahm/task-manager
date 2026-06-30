@@ -30,7 +30,16 @@ impl JwtConfig {
             eprintln!("ADVERTENCIA: JWT_SECRET no definido; usando valor solo para desarrollo.");
             "dev-only-change-me".to_string()
         });
+        Self::from_secret(&secret)
+    }
 
+    /// Configuración fija para tests (unitarios e integración).
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn for_tests() -> Self {
+        Self::from_secret("test-jwt-secret-only-for-tests")
+    }
+
+    fn from_secret(secret: &str) -> Self {
         Self {
             encoding: EncodingKey::from_secret(secret.as_bytes()),
             decoding: DecodingKey::from_secret(secret.as_bytes()),
