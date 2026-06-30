@@ -1,4 +1,8 @@
 //! Usuario autenticado extraído del header `Authorization: Bearer`.
+//!
+//! [`AuthUser`] implementa [`FromRequestParts`]
+//! y se usa como parámetro en handlers protegidos. Valida el JWT, comprueba
+//! `token_type == "access"` y verifica que la cuenta siga activa en BD.
 
 use axum::{
     async_trait,
@@ -9,14 +13,19 @@ use axum::{
 use crate::app_config::AppState;
 use crate::jwt::validate_access_token;
 
+/// Identidad del caller autenticado, derivada del access token JWT.
 #[derive(Debug, Clone)]
 pub struct AuthUser {
+    /// ID del usuario (`sub` en el JWT).
     pub id: i32,
+    /// Nombre de usuario del token.
     pub username: String,
+    /// Si el usuario tiene permisos de administrador.
     pub is_admin: bool,
 }
 
 impl AuthUser {
+    /// Exige rol administrador; devuelve `403 Forbidden` si no lo tiene.
     pub fn require_admin(&self) -> Result<(), StatusCode> {
         if self.is_admin {
             Ok(())
@@ -25,6 +34,7 @@ impl AuthUser {
         }
     }
 
+    /// Permite acceso al propio usuario o a cualquier ID si es admin.
     pub fn require_self_or_admin(&self, user_id: i32) -> Result<(), StatusCode> {
         if self.is_admin || self.id == user_id {
             Ok(())

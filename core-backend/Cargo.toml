@@ -2,6 +2,17 @@
 name = "task-core"
 version = "0.1.0"
 edition = "2021"
+description = "API REST del gestor de tareas con JWT, usuarios y tareas jerárquicas"
+readme = "../README.md"
+
+[lib]
+name = "task_core"
+path = "src/lib.rs"
+doc = true
+
+[[bin]]
+name = "task-core"
+path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }

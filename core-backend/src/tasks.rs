@@ -1,4 +1,8 @@
-//! Handlers de tareas con aislamiento por `user_id` (admin ve todas).
+//! Handlers de tareas con aislamiento por `user_id`.
+//!
+//! - Cada usuario ve solo sus tareas.
+//! - Los administradores ven todas las tareas del sistema.
+//! - `GET /tasks` devuelve un **árbol**: raíces con subtareas en `children`.
 
 use axum::{
     extract::{Path, State},
@@ -12,6 +16,7 @@ use std::collections::HashMap;
 use crate::app_config::AppState;
 use crate::auth_user::AuthUser;
 
+/// Fila de tarea en PostgreSQL (`user_id` no se serializa al cliente).
 #[derive(Serialize, Deserialize, sqlx::FromRow)]
 pub struct Task {
     pub id: i32,
@@ -24,6 +29,7 @@ pub struct Task {
     pub parent_id: Option<i32>,
 }
 
+/// Nodo del árbol devuelto por `GET /tasks`.
 #[derive(Serialize)]
 pub struct TaskTree {
     pub id: i32,
@@ -38,6 +44,7 @@ pub struct TaskTree {
 const TASK_SELECT: &str =
     "SELECT id, user_id, title, description, completed, metadata, parent_id FROM tasks";
 
+/// Cuerpo de `POST /tasks`.
 #[derive(Deserialize)]
 pub struct CreateTask {
     pub title: String,
@@ -46,6 +53,7 @@ pub struct CreateTask {
     pub parent_id: Option<i32>,
 }
 
+/// Cuerpo de `PUT /tasks/:id`.
 #[derive(Deserialize)]
 pub struct UpdateTask {
     pub title: String,
@@ -55,16 +63,19 @@ pub struct UpdateTask {
     pub parent_id: Option<i32>,
 }
 
+/// Cuerpo de `PATCH /tasks/:id/description`.
 #[derive(Deserialize)]
 pub struct PatchDescription {
     pub description: Option<String>,
 }
 
+/// Cuerpo de `PATCH /tasks/:id/metadata`.
 #[derive(Deserialize)]
 pub struct PatchMetadata {
     pub metadata: serde_json::Value,
 }
 
+/// Convierte una lista plana de tareas en un bosque de [`TaskTree`] anidados.
 pub fn build_task_tree(tasks: Vec<Task>) -> Vec<TaskTree> {
     use std::collections::HashSet;
 
@@ -145,6 +156,7 @@ async fn validate_parent_belongs_to_user(
     }
 }
 
+/// `GET /tasks` — árbol de tareas del usuario (o todas si es admin).
 pub async fn get_tasks(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -164,6 +176,7 @@ pub async fn get_tasks(
     Ok(Json(build_task_tree(tasks)))
 }
 
+/// `POST /tasks` — crea tarea o subtarea (`parent_id` opcional).
 pub async fn create_task(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -196,6 +209,7 @@ pub async fn create_task(
     Ok(Json(task))
 }
 
+/// `PUT /tasks/:id` — reemplaza título, descripción, estado, metadatos y padre.
 pub async fn update_task(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -227,6 +241,7 @@ pub async fn update_task(
     Ok(Json(task))
 }
 
+/// `PATCH /tasks/:id/description` — actualiza solo la descripción.
 pub async fn patch_description(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -249,6 +264,7 @@ pub async fn patch_description(
     Ok(Json(task))
 }
 
+/// `PATCH /tasks/:id/metadata` — actualiza solo el JSON de metadatos.
 pub async fn patch_metadata(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -271,6 +287,7 @@ pub async fn patch_metadata(
     Ok(Json(task))
 }
 
+/// `POST /tasks/:id/toggle` — invierte el campo `completed`.
 pub async fn toggle_task(
     State(state): State<AppState>,
     auth: AuthUser,

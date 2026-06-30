@@ -1,4 +1,10 @@
-//! Modelo de usuario y CRUD (solo admin crea/elimina; lectura propia o admin).
+//! Modelo de usuario y CRUD.
+//!
+//! Reglas de autorización:
+//! - **Admin**: listar, crear y eliminar usuarios; ver y editar cualquier perfil.
+//! - **Usuario normal**: solo puede leer y actualizar su propio registro.
+//!
+//! [`ensure_admin_password`] se ejecuta al arrancar el servidor para bootstrap del admin.
 
 use axum::{
     extract::{Path, State},
@@ -23,6 +29,7 @@ pub(crate) struct UserRow {
     pub updated_at: NaiveDateTime,
 }
 
+/// Perfil de usuario expuesto en JSON (sin `password_hash`).
 #[derive(Serialize)]
 pub struct UserResponse {
     id: i32,
@@ -46,6 +53,7 @@ impl From<UserRow> for UserResponse {
     }
 }
 
+/// Cuerpo de `POST /users` (solo admin).
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
     pub username: String,
@@ -54,6 +62,7 @@ pub struct CreateUserRequest {
     pub is_admin: bool,
 }
 
+/// Cuerpo de `PUT /users/:id`. Todos los campos son opcionales.
 #[derive(Deserialize)]
 pub struct UpdateUserRequest {
     pub username: Option<String>,
@@ -65,6 +74,7 @@ pub struct UpdateUserRequest {
 const USER_SELECT: &str =
     "SELECT id, username, password_hash, is_admin, is_active, created_at, updated_at FROM users";
 
+/// `GET /users` — lista todos los usuarios (solo admin).
 pub async fn list_users(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -79,6 +89,7 @@ pub async fn list_users(
     Ok(Json(users.into_iter().map(UserResponse::from).collect()))
 }
 
+/// `GET /users/:id` — perfil propio o cualquiera si es admin.
 pub async fn get_user(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -88,6 +99,7 @@ pub async fn get_user(
     fetch_user_response(&state.pool, id).await
 }
 
+/// `POST /users` — crea un usuario (solo admin). `409` si el username ya existe.
 pub async fn create_user(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -123,6 +135,7 @@ pub async fn create_user(
     Ok(Json(user.into()))
 }
 
+/// `PUT /users/:id` — actualiza perfil. Solo admin puede cambiar `is_admin` / `is_active`.
 pub async fn update_user(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -181,6 +194,7 @@ pub async fn update_user(
     Ok(Json(user.into()))
 }
 
+/// `DELETE /users/:id` — elimina usuario (solo admin). No permite auto-eliminación.
 pub async fn delete_user(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -205,6 +219,7 @@ pub async fn delete_user(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Carga una fila de usuario por ID (incluye hash de contraseña).
 pub async fn fetch_user_row(pool: &sqlx::PgPool, id: i32) -> Result<UserRow, StatusCode> {
     sqlx::query_as::<_, UserRow>(&format!("{USER_SELECT} WHERE id = $1"))
         .bind(id)
@@ -218,6 +233,7 @@ async fn fetch_user_response(pool: &sqlx::PgPool, id: i32) -> Result<Json<UserRe
     Ok(Json(fetch_user_row(pool, id).await?.into()))
 }
 
+/// Busca usuario por nombre para login. `401` si no existe.
 pub async fn fetch_user_by_username(
     pool: &sqlx::PgPool,
     username: &str,
@@ -230,10 +246,14 @@ pub async fn fetch_user_by_username(
         .ok_or(StatusCode::UNAUTHORIZED)
 }
 
+/// Verifica la contraseña de un usuario interno con Argon2id.
 pub fn verify_user_password(user: &UserRow, password: &str) -> bool {
     verify_password(password, &user.password_hash)
 }
 
+/// Si `admin` tiene `password_hash = 'PENDING_HASH'`, lo sustituye al arrancar.
+///
+/// Usa `ADMIN_INITIAL_PASSWORD` (default `changeme`).
 pub async fn ensure_admin_password(pool: &sqlx::PgPool) {
     let pending: Option<String> = sqlx::query_scalar(
         "SELECT password_hash FROM users WHERE username = 'admin' AND password_hash = 'PENDING_HASH'",
