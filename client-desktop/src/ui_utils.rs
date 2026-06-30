@@ -1,7 +1,10 @@
+//! Diálogos GTK reutilizables (errores y confirmaciones).
+
 use gtk4::prelude::*;
 use gtk4::Application;
 use std::cell::RefCell;
 
+/// Muestra un diálogo modal con un único botón Aceptar.
 pub fn show_error_dialog(app: &Application, title: &str, message: &str) {
     let dialog = gtk4::MessageDialog::builder()
         .modal(true)
@@ -17,6 +20,7 @@ pub fn show_error_dialog(app: &Application, title: &str, message: &str) {
     dialog.present();
 }
 
+/// Muestra Sí/No; ejecuta `on_confirm` solo si el usuario elige Sí.
 pub fn show_confirm_dialog(
     app: &Application,
     title: &str,

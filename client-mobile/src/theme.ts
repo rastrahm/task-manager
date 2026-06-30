@@ -1,7 +1,16 @@
+/**
+ * Tema visual (claro/oscuro) y estilos compartidos de la aplicación.
+ * @module theme
+ */
+
 import { StyleSheet } from 'react-native';
 
+/** Modo de color de la interfaz. */
 export type ThemeMode = 'light' | 'dark';
 
+/**
+ * Paleta y tokens de diseño para pantallas y modales.
+ */
 export interface AppTheme {
   mode: ThemeMode;
   background: string;
@@ -19,6 +28,9 @@ export interface AppTheme {
   iconButtonBg: string;
 }
 
+/**
+ * Temas predefinidos indexados por {@link ThemeMode}.
+ */
 export const themes: Record<ThemeMode, AppTheme> = {
   light: {
     mode: 'light',
@@ -54,6 +66,11 @@ export const themes: Record<ThemeMode, AppTheme> = {
   },
 };
 
+/**
+ * Crea el objeto `StyleSheet` de React Native a partir del tema activo.
+ * @param {AppTheme} theme - Tema claro u oscuro.
+ * @returns {ReturnType<typeof StyleSheet.create>} Estilos para pantallas, listas y modales.
+ */
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     container: {

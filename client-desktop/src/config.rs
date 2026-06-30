@@ -1,4 +1,6 @@
 //! Configuración del cliente (URL del API desde `.env` o variables de entorno).
+//!
+//! La URL base se resuelve una sola vez al arrancar mediante [`init`].
 
 use std::sync::OnceLock;
 

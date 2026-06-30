@@ -1,3 +1,8 @@
+/**
+ * Punto de montaje de la aplicación React en el DOM.
+ * @module main
+ */
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'

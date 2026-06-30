@@ -1,3 +1,11 @@
+/**
+ * Punto de entrada de la aplicación React Native.
+ *
+ * Orquesta autenticación, lista jerárquica de tareas, tema claro/oscuro
+ * y administración de usuarios para cuentas administrador.
+ * @module App
+ */
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Text,
@@ -22,8 +30,13 @@ import { FlatTask, Task, flattenTasks } from './src/tasks';
 import { ThemeMode, createStyles, themes } from './src/theme';
 import { UserAdminModal } from './src/UserAdminModal';
 
+/** Fases del flujo de arranque y sesión. */
 type AppPhase = 'booting' | 'login' | 'main';
 
+/**
+ * Componente raíz del gestor de tareas móvil.
+ * @returns {React.ReactElement}
+ */
 const App = () => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
   const theme = themes[themeMode];

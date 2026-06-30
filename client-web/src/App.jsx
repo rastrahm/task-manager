@@ -1,9 +1,23 @@
+/**
+ * Componente raíz: arranque, sesión y enrutado entre login y tareas.
+ * @module App
+ */
+
 import { useEffect, useState } from 'react';
 import { apiClient } from './apiClient';
 import LoginScreen from './LoginScreen';
 import TaskApp from './TaskApp';
 import './App.css';
 
+/**
+ * Fases del flujo de arranque y autenticación.
+ * @typedef {'booting' | 'login' | 'main'} AppPhase
+ */
+
+/**
+ * Orquesta la restauración de sesión y muestra login o la pantalla principal.
+ * @returns {JSX.Element}
+ */
 export default function App() {
   const [phase, setPhase] = useState('booting');
 

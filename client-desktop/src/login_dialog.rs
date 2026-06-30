@@ -1,4 +1,7 @@
 //! Diálogo de inicio de sesión (ventana de aplicación, compatible con Unity/GTK).
+//!
+//! Presenta usuario y contraseña; al autenticar correctamente invoca el callback
+//! con `true`. Si el usuario cierra la ventana o pulsa Salir, se invoca con `false`.
 
 use crate::api_client::ApiClient;
 use crate::runtime;

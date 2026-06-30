@@ -1,3 +1,8 @@
+/**
+ * Pantalla principal: lista jerárquica de tareas, tema y menú de usuario.
+ * @module TaskApp
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createTask, fetchTasks, toggleTask, updateTask } from './api';
 import { apiClient, SessionExpiredError } from './apiClient';
@@ -8,6 +13,26 @@ import UserAdminModal from './UserAdminModal';
 import './TaskApp.css';
 import './Auth.css';
 
+/**
+ * Modo del formulario de tarea (crear raíz, subtarea o editar).
+ * @typedef {object} TaskFormMode
+ * @property {'create'} [kind]
+ * @property {'edit'} [kind]
+ * @property {number | null} [parentId]
+ * @property {string} [parentTitle]
+ * @property {string} [parentTitle]
+ * @property {module:api.Task} [task]
+ */
+
+/**
+ * Renderiza una tarea y sus `children` con sangría recursiva.
+ * @param {object} props
+ * @param {module:api.Task} props.task
+ * @param {number} props.depth - Nivel de anidación (0 = raíz).
+ * @param {Function} props.onToggle
+ * @param {Function} props.onOpenForm
+ * @returns {JSX.Element}
+ */
 function TaskTree({ task, depth, onToggle, onOpenForm }) {
   const meta = parseMetadata(task.metadata);
   const metaLabel = metadataSummary(meta);
@@ -75,6 +100,13 @@ function TaskTree({ task, depth, onToggle, onOpenForm }) {
   );
 }
 
+/**
+ * Vista principal tras el login: CRUD de tareas, refresco y administración.
+ * @param {object} props
+ * @param {Function} props.onLogout
+ * @param {Function} props.onSessionExpired
+ * @returns {JSX.Element}
+ */
 export default function TaskApp({ onLogout, onSessionExpired }) {
   const [tasks, setTasks] = useState([]);
   const [refreshing, setRefreshing] = useState(false);

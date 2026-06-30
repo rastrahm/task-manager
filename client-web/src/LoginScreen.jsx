@@ -1,7 +1,17 @@
+/**
+ * Pantalla de inicio de sesión contra `POST /auth/login`.
+ * @module LoginScreen
+ */
+
 import React, { useState } from 'react';
 import { apiClient } from './apiClient';
 import './Auth.css';
 
+/**
+ * @param {object} props
+ * @param {Function} props.onSuccess - Callback tras autenticación correcta.
+ * @returns {JSX.Element}
+ */
 export default function LoginScreen({ onSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');

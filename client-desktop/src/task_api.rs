@@ -1,7 +1,13 @@
+//! Acceso al API de tareas del backend.
+//!
+//! Define el modelo [`Task`] en formato árbol (`children`) y funciones para
+//! listar, crear, actualizar y alternar el estado de completado.
+
 use crate::api_client::ApiClient;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Tarea tal como la devuelve `GET /tasks`: raíz o nodo con subtareas anidadas.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Task {
     pub id: i32,
@@ -32,10 +38,12 @@ struct UpdateTask {
     parent_id: Option<i32>,
 }
 
+/// Obtiene las tareas raíz con sus `children` anidados.
 pub async fn fetch_tasks(api: &ApiClient) -> Result<Vec<Task>, String> {
     api.get("/tasks").await
 }
 
+/// Crea una tarea o subtarea con título, descripción, metadatos y padre opcional.
 pub async fn create_task_full(
     api: &ApiClient,
     title: String,
@@ -52,6 +60,7 @@ pub async fn create_task_full(
     api.post("/tasks", &new_task).await
 }
 
+/// Reemplaza todos los campos editables de una tarea existente.
 pub async fn update_task(
     api: &ApiClient,
     id: i32,
@@ -71,6 +80,7 @@ pub async fn update_task(
     api.put(&format!("/tasks/{id}"), &payload).await
 }
 
+/// Invierte el campo `completed` de la tarea indicada.
 pub async fn toggle_task(api: &ApiClient, id: i32) -> Result<bool, String> {
     api.post_empty(&format!("/tasks/{id}/toggle")).await
 }

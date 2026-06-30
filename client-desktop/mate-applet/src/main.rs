@@ -1,3 +1,8 @@
+//! Applet MATE para abrir o cerrar el gestor de tareas de escritorio.
+//!
+//! Botón en el panel que, mediante D-Bus, alterna la ventana de
+//! `client-desktop` o lanza el binario si la aplicación no está en ejecución.
+
 use gtk4::{prelude::*, Align, Application, ApplicationWindow, Box, Button, Orientation};
 use glib::clone;
 use std::process::Command;
@@ -16,6 +21,7 @@ trait TaskManagerWindow {
     fn toggle_window(&self) -> zbus::Result<()>;
 }
 
+/// Arranca `client-desktop` si no está en el PATH del entorno de desarrollo.
 fn launch_desktop_app() {
     let desktop_bin = std::env::current_exe()
         .ok()
@@ -35,6 +41,7 @@ fn launch_desktop_app() {
     }
 }
 
+/// Llama a `toggle_window` por D-Bus o inicia la aplicación de escritorio.
 async fn toggle_or_launch() -> Result<(), String> {
     let connection = Connection::session()
         .await

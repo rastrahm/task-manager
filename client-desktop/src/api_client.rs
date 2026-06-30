@@ -1,4 +1,8 @@
 //! Cliente HTTP con JWT, renovación automática y persistencia de sesión.
+//!
+//! [`ApiClient`] centraliza login, refresh, logout y peticiones autenticadas
+//! al backend. Renueva el access token antes de que expire y reintenta una vez
+//! ante respuestas `401 Unauthorized`.
 
 use crate::config::api_base_url;
 use crate::models::{
@@ -14,12 +18,14 @@ use std::time::Duration;
 
 const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// Cliente del API REST con sesión JWT en memoria y en disco.
 pub struct ApiClient {
     http: Client,
     session: Mutex<Option<Session>>,
 }
 
 impl ApiClient {
+    /// Crea un cliente HTTP con timeout de 15 segundos y sin sesión activa.
     pub fn new() -> Self {
         let http = Client::builder()
             .timeout(HTTP_TIMEOUT)
@@ -32,6 +38,7 @@ impl ApiClient {
         }
     }
 
+    /// Nombre del usuario de la sesión actual, si existe.
     pub fn username(&self) -> Option<String> {
         self.session
             .lock()
@@ -39,6 +46,7 @@ impl ApiClient {
             .and_then(|session| session.as_ref().map(|s| s.user.username.clone()))
     }
 
+    /// Indica si el usuario autenticado tiene rol de administrador.
     pub fn is_admin(&self) -> bool {
         self.session
             .lock()
@@ -55,6 +63,9 @@ impl ApiClient {
         Ok(())
     }
 
+    /// Restaura la sesión desde disco (`session.json`) si existe.
+    ///
+    /// Devuelve `true` si se cargó una sesión válida en memoria.
     pub fn load_stored_session(&self) -> bool {
         let Some(stored) = load_session() else {
             return false;
@@ -66,6 +77,7 @@ impl ApiClient {
         false
     }
 
+    /// Renueva los tokens si el access token expira en menos de 60 segundos.
     pub async fn refresh_session_if_needed(&self) -> Result<(), String> {
         let expiring = self
             .session
@@ -80,6 +92,7 @@ impl ApiClient {
         self.refresh_tokens().await
     }
 
+    /// Autentica con usuario y contraseña; persiste la sesión en disco.
     pub async fn login(&self, username: &str, password: &str) -> Result<(), String> {
         let response = self
             .http
@@ -104,6 +117,7 @@ impl ApiClient {
         self.set_session(Session::from_auth(auth))
     }
 
+    /// Intercambia el refresh token por un par de tokens nuevo.
     pub async fn refresh_tokens(&self) -> Result<(), String> {
         let refresh_token = self
             .session
@@ -133,6 +147,7 @@ impl ApiClient {
         self.set_session(Session::from_auth(auth))
     }
 
+    /// Revoca el refresh token en el servidor y borra la sesión local.
     pub async fn logout(&self) -> Result<(), String> {
         let refresh_token = self
             .session
@@ -152,6 +167,7 @@ impl ApiClient {
         Ok(())
     }
 
+    /// Elimina tokens y usuario de memoria y del almacenamiento local.
     pub fn clear_local_session(&self) {
         clear_session();
         if let Ok(mut guard) = self.session.lock() {
@@ -159,10 +175,12 @@ impl ApiClient {
         }
     }
 
+    /// Petición GET autenticada; deserializa el cuerpo JSON a `T`.
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, String> {
         self.request_json(Method::GET, path, None::<&()>).await
     }
 
+    /// Petición POST autenticada con cuerpo JSON.
     pub async fn post<T: DeserializeOwned, B: Serialize>(
         &self,
         path: &str,
@@ -171,10 +189,12 @@ impl ApiClient {
         self.request_json(Method::POST, path, Some(body)).await
     }
 
+    /// Petición POST autenticada sin cuerpo.
     pub async fn post_empty<T: DeserializeOwned>(&self, path: &str) -> Result<T, String> {
         self.request_json(Method::POST, path, None::<&()>).await
     }
 
+    /// Petición PUT autenticada con cuerpo JSON.
     pub async fn put<T: DeserializeOwned, B: Serialize>(
         &self,
         path: &str,
@@ -183,6 +203,7 @@ impl ApiClient {
         self.request_json(Method::PUT, path, Some(body)).await
     }
 
+    /// Petición DELETE autenticada.
     pub async fn delete(&self, path: &str) -> Result<(), String> {
         let response = self.send_with_auth(Method::DELETE, path, None::<&()>).await?;
         if response.status().is_success() {
@@ -271,18 +292,22 @@ impl ApiClient {
             .map_err(|e| format!("Error de red: {e}"))
     }
 
+    /// Lista todos los usuarios (requiere rol administrador).
     pub async fn list_users(&self) -> Result<Vec<User>, String> {
         self.get("/users").await
     }
 
+    /// Crea un usuario (requiere rol administrador).
     pub async fn create_user(&self, payload: &CreateUserRequest) -> Result<User, String> {
         self.post("/users", payload).await
     }
 
+    /// Actualiza un usuario por id (requiere rol administrador).
     pub async fn update_user(&self, id: i32, payload: &UpdateUserRequest) -> Result<User, String> {
         self.put(&format!("/users/{id}"), payload).await
     }
 
+    /// Elimina un usuario por id (requiere rol administrador).
     pub async fn delete_user(&self, id: i32) -> Result<(), String> {
         self.delete(&format!("/users/{id}")).await
     }

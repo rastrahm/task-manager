@@ -1,3 +1,17 @@
+//! Cliente de escritorio GTK 4 del gestor de tareas.
+//!
+//! Punto de entrada de la aplicación nativa Linux. Orquesta el flujo de
+//! autenticación, la ventana principal con lista jerárquica de tareas y el
+//! servicio D-Bus para mostrar u ocultar la ventana desde el applet MATE.
+//!
+//! # Módulos principales
+//!
+//! - [`api_client`]: peticiones HTTP autenticadas al backend.
+//! - [`task_list`]: renderizado y actualización de la lista de tareas.
+//! - [`task_form`]: formulario modal para crear y editar tareas.
+//! - [`login_dialog`]: pantalla de inicio de sesión.
+//! - [`dbus_service`]: integración con el bus de sesión para el applet.
+
 mod api_client;
 mod config;
 mod dbus_service;
@@ -27,6 +41,7 @@ use task_form::{open_task_form, TaskFormMode};
 use task_list::{load_tasks, TaskListContext};
 use user_admin::open_user_admin_window;
 
+/// Identificador de aplicación GTK (`application_id`).
 const APP_ID: &str = "com.rolando.TaskManagerDesktop";
 
 fn main() {
@@ -43,6 +58,7 @@ fn main() {
     app.run();
 }
 
+/// Decide si mostrar login o la ventana principal según la sesión guardada.
 fn present_initial_ui(app: &Application) {
     let api = Arc::new(ApiClient::new());
 
@@ -84,6 +100,7 @@ fn present_initial_ui(app: &Application) {
     });
 }
 
+/// Construye y presenta la ventana principal con lista de tareas y menú de usuario.
 fn show_main_window(app: &Application, api: Arc<ApiClient>) {
     let window = gtk4::ApplicationWindow::builder()
         .application(app)

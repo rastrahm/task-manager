@@ -1,3 +1,8 @@
+/**
+ * Pantalla de inicio de sesión.
+ * @module LoginScreen
+ */
+
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,11 +16,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient } from './apiClient';
 import { AppTheme, createStyles } from './theme';
 
+/** Props del componente {@link LoginScreen}. */
 interface LoginScreenProps {
+  /** Tema visual activo. */
   theme: AppTheme;
+  /** Callback tras login exitoso. */
   onSuccess: () => void;
 }
 
+/**
+ * Formulario de autenticación contra `POST /auth/login`.
+ * @param {LoginScreenProps} props - Tema y callback de éxito.
+ * @returns {React.ReactElement}
+ */
 export function LoginScreen({ theme, onSuccess }: LoginScreenProps) {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [username, setUsername] = useState('');

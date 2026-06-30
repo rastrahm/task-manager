@@ -1,4 +1,7 @@
 //! Ventana de administración de usuarios (solo `is_admin`).
+//!
+//! CRUD de usuarios del sistema: listar, crear, editar y eliminar. Las peticiones
+//! pasan por [`ApiClient`] y requieren sesión de administrador.
 
 use crate::api_client::ApiClient;
 use crate::models::{CreateUserRequest, UpdateUserRequest, User};
@@ -14,6 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// Abre la ventana de administración si el usuario actual es administrador.
 pub fn open_user_admin_window(app: &Application, api: &Arc<ApiClient>) {
     if !api.is_admin() {
         show_error_dialog(
