@@ -1,3 +1,8 @@
+/**
+ * Modal para crear y editar tareas con metadatos.
+ * @module TaskFormModal
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
@@ -21,15 +26,21 @@ import {
   TaskMetadata,
 } from './metadata';
 
+/**
+ * Modo del formulario: creación (raíz o subtarea) o edición.
+ * @typedef {Object} TaskFormMode
+ */
 export type TaskFormMode =
   | { kind: 'create'; parentId?: number | null; parentTitle?: string }
   | { kind: 'edit'; task: Task };
 
+/** Props del componente {@link TaskFormModal}. */
 interface TaskFormModalProps {
   visible: boolean;
   mode: TaskFormMode | null;
   theme: AppTheme;
   onClose: () => void;
+  /** Persiste la tarea vía API; debe lanzar si falla. */
   onSubmit: (values: {
     title: string;
     description?: string | null;
@@ -39,8 +50,14 @@ interface TaskFormModalProps {
   }) => Promise<void>;
 }
 
+/** Metadatos vacíos por defecto. */
 const emptyMetadata = (): TaskMetadata => ({});
 
+/**
+ * Modal con campos de título, descripción, prioridad, fecha y etiquetas.
+ * @param {TaskFormModalProps} props - Visibilidad, modo y callbacks.
+ * @returns {React.ReactElement}
+ */
 export function TaskFormModal({
   visible,
   mode,
@@ -198,6 +215,14 @@ export function TaskFormModal({
   );
 }
 
+/**
+ * Chip seleccionable de prioridad en el formulario de tarea.
+ * @param {object} props
+ * @param {string} props.label - Texto visible.
+ * @param {boolean} props.active - Si está seleccionado.
+ * @param {() => void} props.onPress - Al pulsar el chip.
+ * @returns {React.ReactElement}
+ */
 function PriorityChip({
   label,
   active,

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./App.tsx", "./src"],
+  "entryPointStrategy": "expand",
+  "out": "docs/api",
+  "exclude": ["**/__tests__/**"],
+  "readme": "../README.md",
+  "name": "ClientMobile",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeInternal": true
+}

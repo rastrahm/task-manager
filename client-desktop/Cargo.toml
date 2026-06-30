@@ -2,6 +2,8 @@
 name = "client-desktop"
 version = "0.1.0"
 edition = "2021"
+description = "Cliente de escritorio GTK 4 para el gestor de tareas con autenticación JWT"
+readme = "../README.md"
 
 [dependencies]
 gtk4 = "0.8.1"

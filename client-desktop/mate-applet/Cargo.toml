@@ -2,6 +2,8 @@
 name = "mate-applet"
 version = "0.1.0"
 edition = "2021"
+description = "Applet MATE que abre o cierra la ventana del gestor de tareas por D-Bus"
+readme = "../../README.md"
 
 [dependencies]
 gtk4 = "0.8.1"

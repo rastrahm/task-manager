@@ -1,3 +1,8 @@
+//! Lista jerárquica de tareas en GTK.
+//!
+//! Renderiza el árbol de tareas en un [`ListBox`] con sangría por nivel,
+//! checkboxes para completar, y acciones de editar o agregar subtarea.
+
 use crate::runtime;
 use crate::task_api::Task;
 use crate::task_form::{open_task_form, TaskFormMode};
@@ -12,6 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// Referencias compartidas para cargar y refrescar la lista de tareas en la UI.
 #[derive(Clone)]
 pub struct TaskListContext {
     pub api: Arc<ApiClient>,
@@ -182,6 +188,7 @@ fn render_tasks(ctx: &TaskListContext, tasks: Vec<Task>) {
     append_task_rows(ctx, &tasks, 0);
 }
 
+/// Vuelve a pedir las tareas al backend y actualiza el `ListBox`.
 pub async fn refresh_task_list(ctx: &TaskListContext) {
     let api = Arc::clone(&ctx.api);
     match runtime::run(async move { task_api::fetch_tasks(&api).await }).await {
@@ -196,6 +203,7 @@ pub async fn refresh_task_list(ctx: &TaskListContext) {
     }
 }
 
+/// Carga inicial de tareas (alias de [`refresh_task_list`]).
 pub async fn load_tasks(ctx: &TaskListContext) {
     refresh_task_list(ctx).await;
 }

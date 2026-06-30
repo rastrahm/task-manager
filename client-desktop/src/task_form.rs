@@ -1,3 +1,8 @@
+//! Formulario modal para crear y editar tareas.
+//!
+//! Ventana GTK con campos de título, descripción, prioridad, fecha límite y
+//! etiquetas. Tras guardar, refresca la lista mediante [`TaskListContext`].
+
 use crate::runtime;
 use crate::task_api::{self, Task};
 use crate::task_list::TaskListContext;
@@ -13,8 +18,11 @@ use gtk4::{
 };
 use std::sync::Arc;
 
+/// Modo del formulario: creación (raíz o subtarea) o edición de una tarea existente.
 pub enum TaskFormMode {
+    /// Nueva tarea; `parent_id` indica subtarea si es `Some`.
     Create { parent_id: Option<i32> },
+    /// Edición de una tarea ya cargada en la lista.
     Edit(Task),
 }
 
@@ -24,6 +32,7 @@ struct TaskFormResult {
     metadata: TaskMetadata,
 }
 
+/// Abre el formulario modal y persiste los cambios en el backend al guardar.
 pub fn open_task_form(
     app: &Application,
     api: &Arc<ApiClient>,

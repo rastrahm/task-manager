@@ -1,4 +1,8 @@
 //! Runtime Tokio en segundo plano para reqwest/hyper desde GTK.
+//!
+//! GTK no proporciona un executor async; este módulo mantiene un runtime Tokio
+//! en un hilo dedicado y expone [`run`] para ejecutar futures desde
+//! `glib::spawn_future_local`.
 
 use std::future::Future;
 use std::sync::OnceLock;

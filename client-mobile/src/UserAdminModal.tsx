@@ -1,3 +1,8 @@
+/**
+ * Modal de administración de usuarios (solo administrador).
+ * @module UserAdminModal
+ */
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -15,16 +20,24 @@ import { apiClient } from './apiClient';
 import { User } from './models';
 import { AppTheme, createStyles } from './theme';
 
+/** Props del componente {@link UserAdminModal}. */
 interface UserAdminModalProps {
   visible: boolean;
   theme: AppTheme;
   onClose: () => void;
 }
 
+/** Modo del subformulario de usuario. */
 type UserFormMode =
   | { kind: 'create' }
   | { kind: 'edit'; user: User };
 
+/**
+ * CRUD de usuarios: listar, crear, editar y eliminar.
+ * Requiere sesión con `is_admin` en {@link apiClient}.
+ * @param {UserAdminModalProps} props
+ * @returns {React.ReactElement}
+ */
 export function UserAdminModal({ visible, theme, onClose }: UserAdminModalProps) {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [users, setUsers] = useState<User[]>([]);

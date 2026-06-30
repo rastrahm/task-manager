@@ -26,3 +26,6 @@ yarn-error.log*
 # Lockfiles JS (cada cliente puede regenerarlos con npm/yarn install)
 package-lock.json
 yarn.lock
+
+# Documentación API generada (typedoc / jsdoc)
+**/docs/api/
