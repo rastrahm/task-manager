@@ -21,10 +21,12 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use sqlx::postgres::PgPool;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
+
+mod db_config;
 
 /// Tarea tal como se persiste en la tabla `tasks`.
 /// Corresponde fila a fila con el esquema definido en `init.sql`.
@@ -161,15 +163,7 @@ fn validate_parent_id(id: i32, parent_id: Option<i32>) -> Result<(), StatusCode>
 
 #[tokio::main]
 async fn main() {
-    // `DATABASE_URL` permite apuntar a distintos entornos sin recompilar.
-    let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgre@localhost/tasks_db".to_string());
-
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&db_url)
-        .await
-        .expect("No se pudo conectar a PostgreSQL");
+    let pool = db_config::DbConfig::connect_pool(5).await;
 
     let app = Router::new()
         .route("/tasks", get(get_tasks).post(create_task))
