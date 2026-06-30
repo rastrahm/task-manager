@@ -1,10 +1,11 @@
 //! Modelo de usuario y CRUD.
 //!
+//! Todas las operaciones HTTP usan el mismo [`UserDto`]. El campo `password`
+//! solo se acepta en creación/actualización y nunca se serializa en respuestas.
+//!
 //! Reglas de autorización:
 //! - **Admin**: listar, crear y eliminar usuarios; ver y editar cualquier perfil.
 //! - **Usuario normal**: solo puede leer y actualizar su propio registro.
-//!
-//! [`ensure_admin_password`] se ejecuta al arrancar el servidor para bootstrap del admin.
 
 use axum::{
     extract::{Path, State},
@@ -18,6 +19,23 @@ use crate::app_config::AppState;
 use crate::auth_user::AuthUser;
 use crate::password::{hash_password, verify_password};
 
+/// DTO único de usuario para listar, crear, actualizar y respuestas de auth.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserDto {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<i32>,
+    pub username: Option<String>,
+    /// Solo entrada (create/update). Nunca aparece en JSON de salida.
+    #[serde(skip_serializing, default)]
+    pub password: Option<String>,
+    pub is_admin: Option<bool>,
+    pub is_active: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<NaiveDateTime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<NaiveDateTime>,
+}
+
 #[derive(sqlx::FromRow)]
 pub(crate) struct UserRow {
     pub id: i32,
@@ -29,46 +47,18 @@ pub(crate) struct UserRow {
     pub updated_at: NaiveDateTime,
 }
 
-/// Perfil de usuario expuesto en JSON (sin `password_hash`).
-#[derive(Serialize)]
-pub struct UserResponse {
-    id: i32,
-    username: String,
-    is_admin: bool,
-    is_active: bool,
-    created_at: NaiveDateTime,
-    updated_at: NaiveDateTime,
-}
-
-impl From<UserRow> for UserResponse {
-    fn from(row: UserRow) -> Self {
+impl UserDto {
+    pub(crate) fn from_row(row: UserRow) -> Self {
         Self {
-            id: row.id,
-            username: row.username,
-            is_admin: row.is_admin,
-            is_active: row.is_active,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
+            id: Some(row.id),
+            username: Some(row.username),
+            password: None,
+            is_admin: Some(row.is_admin),
+            is_active: Some(row.is_active),
+            created_at: Some(row.created_at),
+            updated_at: Some(row.updated_at),
         }
     }
-}
-
-/// Cuerpo de `POST /users` (solo admin).
-#[derive(Deserialize)]
-pub struct CreateUserRequest {
-    pub username: String,
-    pub password: String,
-    #[serde(default)]
-    pub is_admin: bool,
-}
-
-/// Cuerpo de `PUT /users/:id`. Todos los campos son opcionales.
-#[derive(Deserialize)]
-pub struct UpdateUserRequest {
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub is_admin: Option<bool>,
-    pub is_active: Option<bool>,
 }
 
 const USER_SELECT: &str =
@@ -78,7 +68,7 @@ const USER_SELECT: &str =
 pub async fn list_users(
     State(state): State<AppState>,
     auth: AuthUser,
-) -> Result<Json<Vec<UserResponse>>, StatusCode> {
+) -> Result<Json<Vec<UserDto>>, StatusCode> {
     auth.require_admin()?;
 
     let users = sqlx::query_as::<_, UserRow>(&format!("{USER_SELECT} ORDER BY id ASC"))
@@ -86,7 +76,7 @@ pub async fn list_users(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(users.into_iter().map(UserResponse::from).collect()))
+    Ok(Json(users.into_iter().map(UserDto::from_row).collect()))
 }
 
 /// `GET /users/:id` — perfil propio o cualquiera si es admin.
@@ -94,33 +84,42 @@ pub async fn get_user(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<i32>,
-) -> Result<Json<UserResponse>, StatusCode> {
+) -> Result<Json<UserDto>, StatusCode> {
     auth.require_self_or_admin(id)?;
-    fetch_user_response(&state.pool, id).await
+    Ok(Json(UserDto::from_row(fetch_user_row(&state.pool, id).await?)))
 }
 
 /// `POST /users` — crea un usuario (solo admin). `409` si el username ya existe.
 pub async fn create_user(
     State(state): State<AppState>,
     auth: AuthUser,
-    Json(payload): Json<CreateUserRequest>,
-) -> Result<Json<UserResponse>, StatusCode> {
+    Json(payload): Json<UserDto>,
+) -> Result<Json<UserDto>, StatusCode> {
     auth.require_admin()?;
 
-    if payload.username.trim().is_empty() || payload.password.is_empty() {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    let username = payload
+        .username
+        .as_deref()
+        .map(str::trim)
+        .filter(|u| !u.is_empty())
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    let password = payload
+        .password
+        .as_deref()
+        .filter(|p| !p.is_empty())
+        .ok_or(StatusCode::BAD_REQUEST)?;
 
-    let password_hash = hash_password(&payload.password).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let password_hash = hash_password(password).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let is_admin = payload.is_admin.unwrap_or(false);
 
     let user = sqlx::query_as::<_, UserRow>(
         "INSERT INTO users (username, password_hash, is_admin)
          VALUES ($1, $2, $3)
          RETURNING id, username, password_hash, is_admin, is_active, created_at, updated_at",
     )
-    .bind(payload.username.trim())
+    .bind(username)
     .bind(password_hash)
-    .bind(payload.is_admin)
+    .bind(is_admin)
     .fetch_one(&state.pool)
     .await
     .map_err(|error| {
@@ -132,7 +131,7 @@ pub async fn create_user(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    Ok(Json(user.into()))
+    Ok(Json(UserDto::from_row(user)))
 }
 
 /// `PUT /users/:id` — actualiza perfil. Solo admin puede cambiar `is_admin` / `is_active`.
@@ -140,8 +139,8 @@ pub async fn update_user(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<i32>,
-    Json(payload): Json<UpdateUserRequest>,
-) -> Result<Json<UserResponse>, StatusCode> {
+    Json(payload): Json<UserDto>,
+) -> Result<Json<UserDto>, StatusCode> {
     auth.require_self_or_admin(id)?;
 
     let existing = fetch_user_row(&state.pool, id).await?;
@@ -191,7 +190,7 @@ pub async fn update_user(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(user.into()))
+    Ok(Json(UserDto::from_row(user)))
 }
 
 /// `DELETE /users/:id` — elimina usuario (solo admin). No permite auto-eliminación.
@@ -220,7 +219,7 @@ pub async fn delete_user(
 }
 
 /// Carga una fila de usuario por ID (incluye hash de contraseña).
-pub async fn fetch_user_row(pool: &sqlx::PgPool, id: i32) -> Result<UserRow, StatusCode> {
+pub(crate) async fn fetch_user_row(pool: &sqlx::PgPool, id: i32) -> Result<UserRow, StatusCode> {
     sqlx::query_as::<_, UserRow>(&format!("{USER_SELECT} WHERE id = $1"))
         .bind(id)
         .fetch_optional(pool)
@@ -229,12 +228,8 @@ pub async fn fetch_user_row(pool: &sqlx::PgPool, id: i32) -> Result<UserRow, Sta
         .ok_or(StatusCode::NOT_FOUND)
 }
 
-async fn fetch_user_response(pool: &sqlx::PgPool, id: i32) -> Result<Json<UserResponse>, StatusCode> {
-    Ok(Json(fetch_user_row(pool, id).await?.into()))
-}
-
 /// Busca usuario por nombre para login. `401` si no existe.
-pub async fn fetch_user_by_username(
+pub(crate) async fn fetch_user_by_username(
     pool: &sqlx::PgPool,
     username: &str,
 ) -> Result<UserRow, StatusCode> {
@@ -247,13 +242,11 @@ pub async fn fetch_user_by_username(
 }
 
 /// Verifica la contraseña de un usuario interno con Argon2id.
-pub fn verify_user_password(user: &UserRow, password: &str) -> bool {
+pub(crate) fn verify_user_password(user: &UserRow, password: &str) -> bool {
     verify_password(password, &user.password_hash)
 }
 
 /// Si `admin` tiene `password_hash = 'PENDING_HASH'`, lo sustituye al arrancar.
-///
-/// Usa `ADMIN_INITIAL_PASSWORD` (default `changeme`).
 pub async fn ensure_admin_password(pool: &sqlx::PgPool) {
     let pending: Option<String> = sqlx::query_scalar(
         "SELECT password_hash FROM users WHERE username = 'admin' AND password_hash = 'PENDING_HASH'",

@@ -76,8 +76,8 @@
 //! - [`jwt`] — emisión y validación de access tokens.
 //! - [`password`] — hash Argon2id de contraseñas.
 //! - [`refresh_token`] — persistencia y rotación de refresh tokens.
-//! - [`tasks`] — CRUD de tareas con aislamiento por `user_id`.
-//! - [`users`] — CRUD de usuarios y bootstrap del admin.
+//! - [`tasks`] — CRUD de tareas ([`tasks::TaskDto`]) con aislamiento por `user_id`.
+//! - [`users`] — CRUD de usuarios ([`users::UserDto`]) y bootstrap del admin.
 //!
 //! ## Documentación local
 //!
