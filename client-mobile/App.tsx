@@ -2,19 +2,18 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Text,
   View,
-  TextInput,
   Button,
   FlatList,
   TouchableOpacity,
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Modal,
-  Pressable,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API_URL } from './src/config';
+import { createTask, fetchTasks as loadTasks, toggleTask, updateTask } from './src/api';
+import { metadataToJson, metadataSummary, parseMetadata } from './src/metadata';
+import { TaskFormModal, TaskFormMode } from './src/TaskFormModal';
 import { FlatTask, Task, flattenTasks } from './src/tasks';
 import { ThemeMode, createStyles, themes } from './src/theme';
 
@@ -24,10 +23,8 @@ const App = () => {
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTitle, setNewTitle] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [subtaskParent, setSubtaskParent] = useState<Task | null>(null);
-  const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [formMode, setFormMode] = useState<TaskFormMode | null>(null);
 
   const flatTasks = useMemo(() => flattenTasks(tasks), [tasks]);
 
@@ -37,11 +34,7 @@ const App = () => {
 
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch(API_URL);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const data: Task[] = await res.json();
+      const data = await loadTasks();
       setTasks(data);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -58,65 +51,41 @@ const App = () => {
     setRefreshing(false);
   }, [fetchTasks]);
 
-  const createTask = async (title: string, parentId?: number | null) => {
-    const trimmed = title.trim();
-    if (!trimmed) {
-      Alert.alert('Advertencia', 'El título de la tarea no puede estar vacío.');
-      return false;
-    }
-
+  const handleFormSubmit = async (values: {
+    title: string;
+    description?: string | null;
+    metadata: ReturnType<typeof parseMetadata>;
+    parentId?: number | null;
+    task?: Task;
+  }) => {
     try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: trimmed,
-          parent_id: parentId ?? null,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+      if (values.task) {
+        await updateTask(values.task.id, {
+          title: values.title,
+          description: values.description ?? null,
+          completed: values.task.completed,
+          metadata: metadataToJson(values.metadata),
+          parent_id: values.parentId ?? null,
+        });
+      } else {
+        await createTask({
+          title: values.title,
+          description: values.description ?? null,
+          metadata: metadataToJson(values.metadata),
+          parent_id: values.parentId ?? null,
+        });
       }
       await fetchTasks();
-      return true;
     } catch (error) {
-      console.error('Error creating task:', error);
-      Alert.alert('Error', 'No se pudo crear la tarea.');
-      return false;
+      console.error('Error saving task:', error);
+      Alert.alert('Error', 'No se pudo guardar la tarea.');
+      throw error;
     }
   };
 
-  const handleCreateRootTask = async () => {
-    if (await createTask(newTitle)) {
-      setNewTitle('');
-    }
-  };
-
-  const openSubtaskModal = (parent: Task) => {
-    setSubtaskParent(parent);
-    setSubtaskTitle('');
-  };
-
-  const closeSubtaskModal = () => {
-    setSubtaskParent(null);
-    setSubtaskTitle('');
-  };
-
-  const handleCreateSubtask = async () => {
-    if (!subtaskParent) {
-      return;
-    }
-    if (await createTask(subtaskTitle, subtaskParent.id)) {
-      closeSubtaskModal();
-    }
-  };
-
-  const toggleTask = async (id: number) => {
+  const handleToggleTask = async (id: number) => {
     try {
-      const res = await fetch(`${API_URL}/${id}/toggle`, { method: 'POST' });
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+      await toggleTask(id);
       fetchTasks();
     } catch (error) {
       console.error('Error toggling task:', error);
@@ -128,33 +97,65 @@ const App = () => {
     fetchTasks();
   }, [fetchTasks]);
 
-  const renderTask = ({ item }: { item: FlatTask }) => (
-    <View style={[styles.taskItem, { marginLeft: item.depth * 20 }]}>
-      <TouchableOpacity
-        onPress={() => toggleTask(item.id)}
-        style={styles.taskMain}
-        accessibilityRole="button"
-        accessibilityLabel={`Alternar tarea ${item.title}`}
-      >
-        <Text
-          style={[
-            styles.taskText,
-            item.completed && styles.completedTaskText,
-          ]}
+  const renderTask = ({ item }: { item: FlatTask }) => {
+    const meta = parseMetadata(item.metadata);
+    const metaLabel = metadataSummary(meta);
+
+    return (
+      <View style={[styles.taskItem, { marginLeft: item.depth * 20 }]}>
+        <TouchableOpacity
+          onPress={() => handleToggleTask(item.id)}
+          style={styles.taskMain}
+          accessibilityRole="button"
+          accessibilityLabel={`Alternar tarea ${item.title}`}
         >
-          {item.title}
-        </Text>
-        {item.completed && <Text style={styles.checkmark}>✓</Text>}
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => openSubtaskModal(item)}
-        style={styles.addSubtaskButton}
-        accessibilityLabel={`Agregar subtarea a ${item.title}`}
-      >
-        <Text style={styles.addSubtaskIcon}>+</Text>
-      </TouchableOpacity>
-    </View>
-  );
+          <View style={styles.taskContent}>
+            <Text
+              style={[
+                styles.taskText,
+                item.completed && styles.completedTaskText,
+              ]}
+            >
+              {item.title}
+            </Text>
+            {item.description ? (
+              <Text style={styles.taskDescription} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+            {metaLabel ? (
+              <Text style={styles.taskMeta} numberOfLines={1}>
+                {metaLabel}
+              </Text>
+            ) : null}
+          </View>
+          {item.completed && <Text style={styles.checkmark}>✓</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            setFormMode({ kind: 'edit', task: item })
+          }
+          style={styles.editButton}
+          accessibilityLabel={`Editar tarea ${item.title}`}
+        >
+          <Text style={styles.editIcon}>✎</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            setFormMode({
+              kind: 'create',
+              parentId: item.id,
+              parentTitle: item.title,
+            })
+          }
+          style={styles.addSubtaskButton}
+          accessibilityLabel={`Agregar subtarea a ${item.title}`}
+        >
+          <Text style={styles.addSubtaskIcon}>+</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -188,15 +189,12 @@ const App = () => {
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={newTitle}
-          onChangeText={setNewTitle}
-          placeholder="Nueva tarea..."
-          placeholderTextColor={theme.placeholder}
+      <View style={styles.newTaskRow}>
+        <Button
+          title="Nueva tarea"
+          onPress={() => setFormMode({ kind: 'create' })}
+          color={theme.primary}
         />
-        <Button title="Agregar" onPress={handleCreateRootTask} color={theme.primary} />
       </View>
       <FlatList
         data={flatTasks}
@@ -217,35 +215,13 @@ const App = () => {
         }
       />
 
-      <Modal
-        visible={subtaskParent !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeSubtaskModal}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={closeSubtaskModal}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Nueva subtarea</Text>
-            {subtaskParent && (
-              <Text style={styles.modalSubtitle}>
-                De: {subtaskParent.title}
-              </Text>
-            )}
-            <TextInput
-              style={styles.modalInput}
-              value={subtaskTitle}
-              onChangeText={setSubtaskTitle}
-              placeholder="Título de la subtarea..."
-              placeholderTextColor={theme.placeholder}
-              autoFocus
-            />
-            <View style={styles.modalActions}>
-              <Button title="Cancelar" onPress={closeSubtaskModal} color="#6c757d" />
-              <Button title="Agregar" onPress={handleCreateSubtask} color={theme.primary} />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <TaskFormModal
+        visible={formMode !== null}
+        mode={formMode}
+        theme={theme}
+        onClose={() => setFormMode(null)}
+        onSubmit={handleFormSubmit}
+      />
     </SafeAreaView>
   );
 };

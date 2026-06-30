@@ -1,64 +1,95 @@
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg-page: #f3f4f6;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f9fafb;
+  --bg-input: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-completed: #9ca3af;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-text: #ffffff;
+  --primary-soft: #eff6ff;
+  --primary-soft-border: #bfdbfe;
+  --primary-soft-hover: #dbeafe;
+  --primary-soft-text: #1d4ed8;
+  --btn-edit-bg: #f3f4f6;
+  --btn-edit-hover: #e5e7eb;
+  --btn-edit-text: #374151;
+  --shadow: rgba(0, 0, 0, 0.06);
+  --modal-backdrop: rgba(17, 24, 39, 0.55);
+  --focus-ring: #bfdbfe;
+  --focus-border: #60a5fa;
+  --icon-button-hover: #eff6ff;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-page: #121212;
+  --bg-surface: #1e1e1e;
+  --bg-surface-hover: #2a2a2a;
+  --bg-input: #2a2a2a;
+  --text-primary: #f0f0f0;
+  --text-secondary: #b0b0b0;
+  --text-muted: #888888;
+  --text-completed: #666666;
+  --border: #333333;
+  --border-strong: #444444;
+  --primary: #4dabf7;
+  --primary-hover: #339af0;
+  --primary-text: #ffffff;
+  --primary-soft: #1a2a3a;
+  --primary-soft-border: #2c4a6e;
+  --primary-soft-hover: #243b55;
+  --primary-soft-text: #74c0fc;
+  --btn-edit-bg: #2a2a2a;
+  --btn-edit-hover: #333333;
+  --btn-edit-text: #e0e0e0;
+  --shadow: rgba(0, 0, 0, 0.35);
+  --modal-backdrop: rgba(0, 0, 0, 0.7);
+  --focus-ring: #1c3d5a;
+  --focus-border: #4dabf7;
+  --icon-button-hover: #1a2a3a;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  color: var(--text-primary);
+  background-color: var(--bg-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
 }
 
 #root {
-  max-width: 1280px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 1.5rem;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }

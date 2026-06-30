@@ -1,14 +1,17 @@
 mod dbus_service;
 mod task_api;
+mod task_form;
+mod task_list;
+mod task_metadata;
 mod ui_utils;
 
-use gtk4::{
-    prelude::*,
-    Application, Box, Button, Entry, ListBox, Orientation, ScrolledWindow,
-};
+use gtk4::{prelude::*, Application, Box, Button, ListBox, Orientation, ScrolledWindow};
 use std::cell::RefCell;
 use std::rc::Rc;
 use glib::clone;
+
+use task_form::{open_task_form, TaskFormMode};
+use task_list::{load_tasks, TaskListContext};
 
 const APP_ID: &str = "com.rolando.TaskManagerDesktop";
 
@@ -22,17 +25,33 @@ async fn main() {
 fn build_ui(app: &Application) {
     let window = gtk4::ApplicationWindow::builder()
         .application(app)
-        .default_width(400)
-        .default_height(600)
+        .default_width(440)
+        .default_height(640)
         .build();
 
     let client = Rc::new(reqwest::Client::new());
     let tasks_data: Rc<RefCell<Vec<task_api::Task>>> = Rc::new(RefCell::new(Vec::new()));
+    let tasks_list_box = ListBox::builder()
+        .css_classes(["task-list"])
+        .build();
+
+    let ctx = Rc::new(TaskListContext {
+        client: client.clone(),
+        app: app.clone(),
+        tasks_list_box: tasks_list_box.clone(),
+        tasks_data: tasks_data.clone(),
+    });
 
     let header_bar = gtk4::HeaderBar::builder()
         .title_widget(&gtk4::Label::builder().label("Gestor de Tareas").build())
         .build();
     window.set_titlebar(Some(&header_bar));
+
+    let new_task_button = Button::builder()
+        .label("Nueva tarea")
+        .tooltip_text("Crear tarea")
+        .build();
+    header_bar.pack_start(&new_task_button);
 
     let refresh_button = Button::builder()
         .icon_name("view-refresh-symbolic")
@@ -43,30 +62,12 @@ fn build_ui(app: &Application) {
     let main_box = Box::builder()
         .orientation(Orientation::Vertical)
         .spacing(10)
-        .margin_top(20)
-        .margin_bottom(20)
-        .margin_start(20)
-        .margin_end(20)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
         .build();
 
-    let input_box = Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(5)
-        .build();
-    main_box.append(&input_box);
-
-    let new_task_entry = Entry::builder()
-        .placeholder_text("Nueva tarea...")
-        .hexpand(true)
-        .build();
-    input_box.append(&new_task_entry);
-
-    let add_button = Button::builder().label("Agregar").build();
-    input_box.append(&add_button);
-
-    let tasks_list_box = ListBox::builder()
-        .css_classes(["task-list"])
-        .build();
     main_box.append(&tasks_list_box);
 
     let scrolled_window = ScrolledWindow::builder()
@@ -85,34 +86,24 @@ fn build_ui(app: &Application) {
 
     window.present();
 
-    glib::spawn_future_local(clone!(@strong client, @strong app, @strong tasks_list_box, @strong tasks_data => async move {
-        task_api::fetch_tasks_request(&client, &app, &tasks_list_box, &tasks_data).await;
+    glib::spawn_future_local(clone!(@strong ctx => async move {
+        load_tasks(&ctx).await;
     }));
 
-    refresh_button.connect_clicked(clone!(@strong client, @strong app, @strong tasks_list_box, @strong tasks_data => move |_| {
-        glib::spawn_future_local(clone!(@strong client, @strong app, @strong tasks_list_box, @strong tasks_data => async move {
-            task_api::fetch_tasks_request(&client, &app, &tasks_list_box, &tasks_data).await;
-        }));
+    refresh_button.connect_clicked(clone!(@strong ctx => move |_| {
+        let ctx = ctx.clone();
+        glib::spawn_future_local(async move {
+            load_tasks(&ctx).await;
+        });
     }));
 
-    add_button.connect_clicked(clone!(@strong client, @strong app, @strong new_task_entry, @strong tasks_list_box, @strong tasks_data => move |_| {
-        let title = new_task_entry.text().to_string();
-        if title.is_empty() {
-            ui_utils::show_error_dialog(&app, "Advertencia", "El título no puede estar vacío.");
-            return;
-        }
-        new_task_entry.set_text("");
-
-        glib::spawn_future_local(clone!(@strong client, @strong app, @strong tasks_list_box, @strong tasks_data => async move {
-            if task_api::create_task_request(&client, title, None).await.is_ok() {
-                task_api::fetch_tasks_request(&client, &app, &tasks_list_box, &tasks_data).await;
-            } else {
-                ui_utils::show_error_dialog(&app, "Error", "No se pudo crear la tarea.");
-            }
-        }));
-    }));
-
-    new_task_entry.connect_activate(clone!(@strong add_button => move |_| {
-        add_button.emit_clicked();
+    new_task_button.connect_clicked(clone!(@strong ctx => move |_| {
+        let ctx = ctx.clone();
+        open_task_form(
+            &ctx.app,
+            &ctx.client,
+            &ctx,
+            TaskFormMode::Create { parent_id: None },
+        );
     }));
 }

@@ -101,27 +101,9 @@ export function createStyles(theme: AppTheme) {
     themeIcon: {
       fontSize: 22,
     },
-    inputContainer: {
-      flexDirection: 'row',
-      marginBottom: 20,
+    newTaskRow: {
       width: '90%',
-      paddingHorizontal: 10,
-    },
-    input: {
-      flex: 1,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-      padding: 12,
-      marginRight: 10,
-      borderRadius: 8,
-      fontSize: 16,
-      color: theme.text,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: theme.mode === 'light' ? 0.1 : 0.2,
-      shadowRadius: 1,
-      elevation: 2,
+      marginBottom: 16,
     },
     taskList: {
       width: '90%',
@@ -149,10 +131,22 @@ export function createStyles(theme: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
     },
-    taskText: {
+    taskContent: {
       flex: 1,
+    },
+    taskText: {
       fontSize: 18,
       color: theme.text,
+    },
+    taskDescription: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginTop: 4,
+    },
+    taskMeta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 4,
     },
     completedTaskText: {
       textDecorationLine: 'line-through',
@@ -163,6 +157,21 @@ export function createStyles(theme: AppTheme) {
       fontSize: 22,
       color: theme.success,
       marginLeft: 15,
+    },
+    editButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.iconButtonBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    editIcon: {
+      fontSize: 16,
+      color: theme.textSecondary,
     },
     addSubtaskButton: {
       width: 36,
@@ -195,6 +204,45 @@ export function createStyles(theme: AppTheme) {
       backgroundColor: theme.surface,
       borderRadius: 12,
       padding: 20,
+    },
+    formModalCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 20,
+      maxHeight: '90%',
+    },
+    formLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textSecondary,
+      marginBottom: 6,
+    },
+    formTextArea: {
+      minHeight: 88,
+      marginBottom: 16,
+    },
+    priorityRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    priorityChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.background,
+    },
+    priorityChipActive: {
+      borderColor: theme.primary,
+      backgroundColor: theme.primarySoft,
+    },
+    priorityChipText: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      textTransform: 'capitalize',
     },
     modalTitle: {
       fontSize: 20,
