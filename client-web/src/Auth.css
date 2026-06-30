@@ -1,0 +1,253 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.login-card {
+  width: min(400px, 100%);
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 16px var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.login-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.5rem;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.auth-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.auth-input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  margin-bottom: 1rem;
+}
+
+.auth-input:focus {
+  outline: 2px solid var(--focus-ring);
+  border-color: var(--focus-border);
+}
+
+.login-status {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.login-error {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: #c92a2a;
+}
+
+.login-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.app-boot {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-boot-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.session-info {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.admin-badge {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary-soft-text);
+}
+
+.user-menu-wrap {
+  position: relative;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px var(--shadow);
+  padding: 0.5rem 0;
+  z-index: 50;
+}
+
+.user-menu-title {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.user-menu-item:hover {
+  background: var(--bg-surface-hover);
+}
+
+.user-menu-item-danger {
+  color: #c92a2a;
+}
+
+.user-admin-card {
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 1.25rem;
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  color: var(--text-primary);
+  box-shadow: 0 20px 40px var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.user-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.user-admin-header h3 {
+  margin: 0;
+}
+
+.user-admin-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.user-admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.user-admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-surface-hover);
+}
+
+.user-admin-meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.user-admin-row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.user-admin-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem;
+}
+
+.btn-danger {
+  background: #fff5f5;
+  color: #c92a2a;
+  border-color: #ffc9c9;
+}
+
+[data-theme='dark'] .btn-danger {
+  background: #2b1a1a;
+  border-color: #5c2b2b;
+}
+
+.user-admin-form-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1100;
+}
+
+.user-admin-form {
+  width: min(420px, 100%);
+}
+
+.auth-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.task-app-header-main {
+  flex: 1;
+  min-width: 0;
+}

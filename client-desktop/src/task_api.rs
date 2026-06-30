@@ -1,9 +1,6 @@
-use reqwest;
+use crate::api_client::ApiClient;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::rc::Rc;
-
-pub const API_URL: &str = "http://localhost:5040/tasks";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Task {
@@ -35,28 +32,12 @@ struct UpdateTask {
     parent_id: Option<i32>,
 }
 
-pub async fn fetch_tasks(client: &Rc<reqwest::Client>) -> Result<Vec<Task>, String> {
-    let response = client
-        .get(API_URL)
-        .send()
-        .await
-        .map_err(|e| format!("No se pudo conectar con el backend: {e}"))?;
-
-    if !response.status().is_success() {
-        return Err(format!(
-            "El servidor respondió con un error: {}",
-            response.status()
-        ));
-    }
-
-    response
-        .json::<Vec<Task>>()
-        .await
-        .map_err(|e| format!("No se pudieron interpretar las tareas: {e}"))
+pub async fn fetch_tasks(api: &ApiClient) -> Result<Vec<Task>, String> {
+    api.get("/tasks").await
 }
 
 pub async fn create_task_full(
-    client: &Rc<reqwest::Client>,
+    api: &ApiClient,
     title: String,
     description: Option<String>,
     metadata: Value,
@@ -68,19 +49,11 @@ pub async fn create_task_full(
         metadata: Some(metadata),
         parent_id,
     };
-    client
-        .post(API_URL)
-        .json(&new_task)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .json::<Task>()
-        .await
-        .map_err(|e| e.to_string())
+    api.post("/tasks", &new_task).await
 }
 
 pub async fn update_task(
-    client: &Rc<reqwest::Client>,
+    api: &ApiClient,
     id: i32,
     title: String,
     description: Option<String>,
@@ -95,27 +68,9 @@ pub async fn update_task(
         metadata,
         parent_id,
     };
-    client
-        .put(format!("{API_URL}/{id}"))
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .json::<Task>()
-        .await
-        .map_err(|e| e.to_string())
+    api.put(&format!("/tasks/{id}"), &payload).await
 }
 
-pub async fn toggle_task(
-    client: &Rc<reqwest::Client>,
-    id: i32,
-) -> Result<bool, String> {
-    client
-        .post(format!("{API_URL}/{id}/toggle"))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .json::<bool>()
-        .await
-        .map_err(|e| e.to_string())
+pub async fn toggle_task(api: &ApiClient, id: i32) -> Result<bool, String> {
+    api.post_empty(&format!("/tasks/{id}/toggle")).await
 }

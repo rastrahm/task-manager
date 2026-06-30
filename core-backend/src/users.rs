@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
 use crate::app_config::AppState;
@@ -19,8 +19,8 @@ pub(crate) struct UserRow {
     pub password_hash: String,
     pub is_admin: bool,
     pub is_active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Serialize)]
@@ -29,8 +29,8 @@ pub struct UserResponse {
     username: String,
     is_admin: bool,
     is_active: bool,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    created_at: NaiveDateTime,
+    updated_at: NaiveDateTime,
 }
 
 impl From<UserRow> for UserResponse {

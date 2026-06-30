@@ -75,6 +75,9 @@ export function createStyles(theme: AppTheme) {
       color: theme.text,
       flex: 1,
     },
+    headerTitleBlock: {
+      flex: 1,
+    },
     headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -269,6 +272,148 @@ export function createStyles(theme: AppTheme) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       gap: 12,
+    },
+    loginContainer: {
+      flex: 1,
+      backgroundColor: theme.background,
+      justifyContent: 'center',
+      padding: 24,
+    },
+    loginCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 24,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: theme.mode === 'light' ? 0.1 : 0.3,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    loginTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.text,
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    loginStatus: {
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 12,
+    },
+    loginActions: {
+      marginTop: 8,
+      alignItems: 'center',
+    },
+    sessionLabel: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    adminBadge: {
+      fontSize: 12,
+      color: theme.success,
+      fontWeight: '600',
+    },
+    menuBackdrop: {
+      flex: 1,
+      backgroundColor: theme.modalBackdrop,
+      justifyContent: 'flex-start',
+      alignItems: 'flex-end',
+      paddingTop: 60,
+      paddingRight: 16,
+    },
+    menuCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 12,
+      minWidth: 220,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    menuTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+      marginBottom: 4,
+    },
+    menuItem: {
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    menuItemText: {
+      fontSize: 16,
+      color: theme.text,
+    },
+    menuItemDanger: {
+      color: '#c92a2a',
+    },
+    adminContainer: {
+      flex: 1,
+      backgroundColor: theme.background,
+      paddingTop: 16,
+      paddingHorizontal: 16,
+    },
+    adminHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    adminToolbar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      gap: 8,
+    },
+    adminListContent: {
+      paddingBottom: 24,
+    },
+    userRow: {
+      backgroundColor: theme.surface,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    userRowMain: {
+      marginBottom: 8,
+    },
+    userRowTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    userRowMeta: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    userRowActions: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    userActionButton: {
+      paddingVertical: 4,
+    },
+    userActionText: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    userActionDanger: {
+      color: '#c92a2a',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
     },
   });
 }

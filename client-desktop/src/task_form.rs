@@ -1,5 +1,7 @@
+use crate::runtime;
 use crate::task_api::{self, Task};
 use crate::task_list::TaskListContext;
+use crate::api_client::ApiClient;
 use crate::task_metadata::{parse_tags_input, tags_to_input, TaskMetadata, PRIORITIES};
 use crate::task_list;
 use crate::ui_utils::show_error_dialog;
@@ -9,7 +11,7 @@ use gtk4::{
     Application, Box, Button, DropDown, Entry, Label, Orientation, ScrolledWindow, StringList,
     TextView, Window,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub enum TaskFormMode {
     Create { parent_id: Option<i32> },
@@ -24,7 +26,7 @@ struct TaskFormResult {
 
 pub fn open_task_form(
     app: &Application,
-    client: &Rc<reqwest::Client>,
+    api: &Arc<ApiClient>,
     ctx: &TaskListContext,
     mode: TaskFormMode,
 ) {
@@ -143,7 +145,7 @@ pub fn open_task_form(
     }));
 
     let app_save = app.clone();
-    let client_save = client.clone();
+    let api_save = api.clone();
     let ctx_save = ctx.clone();
     let mode_save = mode;
 
@@ -190,7 +192,7 @@ pub fn open_task_form(
         };
 
         let app = app_save.clone();
-        let client = client_save.clone();
+        let api = api_save.clone();
         let ctx = ctx_save.clone();
         let mode = match &mode_save {
             TaskFormMode::Create { parent_id } => TaskFormMode::Create { parent_id: *parent_id },
@@ -198,30 +200,34 @@ pub fn open_task_form(
         };
 
         glib::spawn_future_local(clone!(@strong window => async move {
-            let result = match mode {
-                TaskFormMode::Create { parent_id } => {
-                    task_api::create_task_full(
-                        &client,
-                        form.title,
-                        form.description,
-                        form.metadata.to_value(),
-                        parent_id,
-                    )
-                    .await
+            let api = Arc::clone(&api);
+            let result = runtime::run(async move {
+                match mode {
+                    TaskFormMode::Create { parent_id } => {
+                        task_api::create_task_full(
+                            &api,
+                            form.title,
+                            form.description,
+                            form.metadata.to_value(),
+                            parent_id,
+                        )
+                        .await
+                    }
+                    TaskFormMode::Edit(task) => {
+                        task_api::update_task(
+                            &api,
+                            task.id,
+                            form.title,
+                            form.description,
+                            task.completed,
+                            form.metadata.to_value(),
+                            task.parent_id,
+                        )
+                        .await
+                    }
                 }
-                TaskFormMode::Edit(task) => {
-                    task_api::update_task(
-                        &client,
-                        task.id,
-                        form.title,
-                        form.description,
-                        task.completed,
-                        form.metadata.to_value(),
-                        task.parent_id,
-                    )
-                    .await
-                }
-            };
+            })
+            .await;
 
             match result {
                 Ok(_) => {

@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createTask, fetchTasks, toggleTask, updateTask } from './api';
+import { apiClient, SessionExpiredError } from './apiClient';
 import { metadataSummary, metadataToJson, parseMetadata } from './metadata';
 import { getStoredTheme, toggleTheme as switchTheme } from './theme';
 import TaskFormModal from './TaskFormModal';
+import UserAdminModal from './UserAdminModal';
 import './TaskApp.css';
+import './Auth.css';
 
 function TaskTree({ task, depth, onToggle, onOpenForm }) {
   const meta = parseMetadata(task.metadata);
@@ -72,11 +75,28 @@ function TaskTree({ task, depth, onToggle, onOpenForm }) {
   );
 }
 
-export default function TaskApp() {
+export default function TaskApp({ onLogout, onSessionExpired }) {
   const [tasks, setTasks] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [formMode, setFormMode] = useState(null);
   const [themeMode, setThemeMode] = useState(getStoredTheme);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [userAdminOpen, setUserAdminOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  const username = apiClient.username ?? 'usuario';
+  const isAdmin = apiClient.isAdmin;
+
+  const handleApiError = useCallback(
+    (error, fallback) => {
+      if (error instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+      alert(error instanceof Error ? error.message : fallback);
+    },
+    [onSessionExpired],
+  );
 
   const loadTasks = useCallback(async () => {
     try {
@@ -84,9 +104,12 @@ export default function TaskApp() {
       setTasks(data);
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      alert('No se pudieron cargar las tareas. Asegúrate de que el backend esté corriendo.');
+      handleApiError(
+        error,
+        'No se pudieron cargar las tareas. Asegúrate de que el backend esté corriendo.',
+      );
     }
-  }, []);
+  }, [handleApiError]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -115,7 +138,7 @@ export default function TaskApp() {
       await loadTasks();
     } catch (error) {
       console.error('Error saving task:', error);
-      alert('No se pudo guardar la tarea.');
+      handleApiError(error, 'No se pudo guardar la tarea.');
       throw error;
     }
   };
@@ -126,19 +149,77 @@ export default function TaskApp() {
       await loadTasks();
     } catch (error) {
       console.error('Error toggling task:', error);
-      alert('No se pudo actualizar el estado de la tarea.');
+      handleApiError(error, 'No se pudo actualizar el estado de la tarea.');
     }
   };
 
   useEffect(() => {
-    loadTasks();
+    void loadTasks();
   }, [loadTasks]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
+    }
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   return (
     <div className="task-app">
       <div className="task-app-header">
-        <h2>Gestor del Día a Día</h2>
+        <div className="task-app-header-main">
+          <h2>Gestor del Día a Día</h2>
+          <p className="session-info">Sesión: {username}</p>
+          {isAdmin ? <p className="admin-badge">Administrador</p> : null}
+        </div>
         <div className="task-app-header-actions">
+          <div className="user-menu-wrap" ref={menuRef}>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setMenuOpen((open) => !open)}
+              title="Menú de usuario"
+              aria-label="Menú de usuario"
+              aria-expanded={menuOpen}
+            >
+              ☰
+            </button>
+            {menuOpen ? (
+              <div className="user-menu" role="menu">
+                <div className="user-menu-title">{username}</div>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    className="user-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setUserAdminOpen(true);
+                    }}
+                  >
+                    Administrar usuarios
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="user-menu-item user-menu-item-danger"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void onLogout();
+                  }}
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button
             type="button"
             className="icon-button"
@@ -202,6 +283,8 @@ export default function TaskApp() {
         onClose={() => setFormMode(null)}
         onSubmit={handleFormSubmit}
       />
+
+      <UserAdminModal open={userAdminOpen} onClose={() => setUserAdminOpen(false)} />
     </div>
   );
 }

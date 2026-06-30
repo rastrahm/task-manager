@@ -1,17 +1,20 @@
+use crate::runtime;
 use crate::task_api::Task;
 use crate::task_form::{open_task_form, TaskFormMode};
 use crate::task_metadata::TaskMetadata;
 use crate::task_api;
+use crate::api_client::ApiClient;
 use crate::ui_utils::show_error_dialog;
 use glib::{clone, ControlFlow};
 use gtk4::prelude::*;
 use gtk4::{Align, Application, Box, Button, CheckButton, Label, ListBox, ListBoxRow, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TaskListContext {
-    pub client: Rc<reqwest::Client>,
+    pub api: Arc<ApiClient>,
     pub app: Application,
     pub tasks_list_box: ListBox,
     pub tasks_data: Rc<RefCell<Vec<Task>>>,
@@ -118,7 +121,12 @@ fn append_task_rows(ctx: &TaskListContext, tasks: &[Task], depth: usize) {
             }
 
             glib::spawn_future_local(clone!(@strong ctx_toggle, @strong check_button_clone => async move {
-                if let Err(e) = task_api::toggle_task(&ctx_toggle.client, current_task_id).await {
+                let api = Arc::clone(&ctx_toggle.api);
+                let result = runtime::run(async move {
+                    task_api::toggle_task(&api, current_task_id).await
+                })
+                .await;
+                if let Err(e) = result {
                     show_error_dialog(
                         &ctx_toggle.app,
                         "Error al alternar tarea",
@@ -140,7 +148,7 @@ fn append_task_rows(ctx: &TaskListContext, tasks: &[Task], depth: usize) {
             let ctx = ctx_edit.clone();
             open_task_form(
                 &ctx.app,
-                &ctx.client,
+                &ctx.api,
                 &ctx,
                 TaskFormMode::Edit(task_for_edit.clone()),
             );
@@ -152,7 +160,7 @@ fn append_task_rows(ctx: &TaskListContext, tasks: &[Task], depth: usize) {
             let ctx = ctx_subtask.clone();
             open_task_form(
                 &ctx.app,
-                &ctx.client,
+                &ctx.api,
                 &ctx,
                 TaskFormMode::Create {
                     parent_id: Some(parent_id),
@@ -175,7 +183,8 @@ fn render_tasks(ctx: &TaskListContext, tasks: Vec<Task>) {
 }
 
 pub async fn refresh_task_list(ctx: &TaskListContext) {
-    match task_api::fetch_tasks(&ctx.client).await {
+    let api = Arc::clone(&ctx.api);
+    match runtime::run(async move { task_api::fetch_tasks(&api).await }).await {
         Ok(tasks) => {
             let ctx = ctx.clone();
             glib::idle_add_local(move || {

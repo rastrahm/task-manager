@@ -1,36 +1,17 @@
-const API_URL = 'http://localhost:5040/tasks';
-
-async function parseResponse(res) {
-  if (!res.ok) {
-    throw new Error(`HTTP error! status: ${res.status}`);
-  }
-  return res.json();
-}
+import { apiClient } from './apiClient';
 
 export async function fetchTasks() {
-  const res = await fetch(API_URL);
-  return parseResponse(res);
+  return apiClient.get('/tasks');
 }
 
 export async function createTask(payload) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse(res);
+  return apiClient.post('/tasks', payload);
 }
 
 export async function updateTask(id, payload) {
-  const res = await fetch(`${API_URL}/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse(res);
+  return apiClient.put(`/tasks/${id}`, payload);
 }
 
 export async function toggleTask(id) {
-  const res = await fetch(`${API_URL}/${id}/toggle`, { method: 'POST' });
-  return parseResponse(res);
+  return apiClient.postEmpty(`/tasks/${id}/toggle`);
 }
