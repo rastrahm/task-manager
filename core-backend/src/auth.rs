@@ -13,7 +13,7 @@ use crate::refresh_token::{
     find_valid_refresh_token, generate_refresh_token, revoke_refresh_token,
     revoke_refresh_token_by_value, store_refresh_token,
 };
-use crate::users::{fetch_user_by_username, fetch_user_row, verify_user_password, UserResponse};
+use crate::users::{fetch_user_by_username, fetch_user_row, verify_user_password, UserDto};
 
 /// Cuerpo de `POST /auth/login`.
 #[derive(Deserialize)]
@@ -50,7 +50,7 @@ pub struct AuthResponse {
     /// Segundos hasta la caducidad del access token.
     pub expires_in: i64,
     /// Perfil del usuario autenticado (sin hash de contraseña).
-    pub user: UserResponse,
+    pub user: UserDto,
 }
 
 async fn issue_tokens(state: &AppState, user_id: i32) -> Result<AuthResponse, StatusCode> {
@@ -82,7 +82,7 @@ async fn issue_tokens(state: &AppState, user_id: i32) -> Result<AuthResponse, St
         refresh_token,
         token_type: "Bearer",
         expires_in: state.jwt.access_ttl_secs,
-        user: user.into(),
+        user: UserDto::from_row(user),
     })
 }
 
